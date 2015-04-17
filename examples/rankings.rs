@@ -10,13 +10,18 @@ struct Team {
     rating: f32,
 }
 
+// Contains a list of teams and a rating for that group.
 struct Alliance {
     teams: Vec<String>,
     rating: f32,
 }
 
+// K constant used in elo ratings.
 static K: f32 = 16f32;
 
+// TODO: Implement these functions as an impl for Vec<Team>
+
+// Check if a team is already in the vector.
 fn has_team(list: &Vec<Team>, team: &str) -> bool {
     for t in list.iter() {
         if t.key == team {
@@ -55,14 +60,16 @@ fn update_team_rating(list: &mut Vec<Team>, team: &str, change: f32) {
     };
 }
 
+// Elo calculation.
 fn elo_change(winner: f32, loser: f32, result: f32) -> f32 {
-    let ten = 10f32;
-    let expected = 1f32 / (1f32 + ten.powf((loser - winner) / 400f32));
-    K * (result - expected)
+    K * (result - 1f32 / (1f32 + 10f32.powf((loser - winner) / 400f32)))
 }
 
 fn main() {
+    // Create a new instance of `tba` and pass in authentication information.
     let blue_alliance = tba::new("Carl Colglazier", "FRC ELO (testing)", "0.0.0");
+
+    // Load the events. Since tba::events returns
     let events = match blue_alliance.events("2015") {
         Err(_) => {
             println!("Year not found");
@@ -105,6 +112,8 @@ fn main() {
             }
         }
     });
+
+    // Sort the matches by time.
     match_list.sort_by(|a, b| return match match a.time {
         None => 0,
         Some(value) => value,
@@ -117,6 +126,8 @@ fn main() {
     });
 
     let mut teams: Vec<Team> = Vec::new();
+
+    // Used for sorting later on.
     let mut team_names: Vec<String> = Vec::new();
 
     for m in match_list.into_iter() {
@@ -151,16 +162,25 @@ fn main() {
                     blue.rating += team_rating;
                     blue.teams.push(team);
                 }
+
+                // Turn the ratings into averages.
                 red.rating /= red.teams.len() as f32;
                 blue.rating /= blue.teams.len() as f32;
+
+                // K * (score - expected).
                 let updated_score: f32;
                 if a.red.score > a.blue.score {
+                    // Red win.
                     updated_score = elo_change(red.rating, blue.rating, 1f32);
                 } else if a.red.score < a.blue.score {
+                    // Blue win.
                     updated_score = elo_change(red.rating, blue.rating, 0f32);
                 } else {
+                    // Tie.
                     updated_score = elo_change(red.rating, blue.rating, 0.5f32);
                 }
+
+                // Update the ratings for each team.
                 for team in red.teams.iter() {
                     let change = updated_score * (get_team_rating(&teams, &team) / red.rating);
                     update_team_rating(&mut teams, team, change);
@@ -173,11 +193,13 @@ fn main() {
         }
     }
 
+    // Sort teams by rating.
     team_names.sort_by(|a, b| return match get_team_rating(&teams, &a) < get_team_rating(&teams, &b) {
         true => Ordering::Greater,
         false => Ordering::Less,
     });
 
+    // Print the ratings.
     for team in team_names.iter() {
         println!("{}  : {}", team, get_team_rating(&teams, &team));
     }
