@@ -1,6 +1,8 @@
 [package]
 name = "tba"
 version = "0.0.0"
+description = "A Rust wrapper for The Blue Alliance."
+licence = "ISC"
 authors = ["Carl Colglazier <carl@carlcolglazier.com>"]
 
 [lib]
