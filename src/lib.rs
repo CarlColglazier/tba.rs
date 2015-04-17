@@ -92,64 +92,56 @@ impl Session {
     pub fn teams(&self, page: &str) -> json::DecodeResult<Vec<Team>> {
         let path = format!("teams/{}", page);
         let results = request(self, path);
-        let decoded: json::DecodeResult<Vec<Team>> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
     /// http://www.thebluealliance.com/apidocs#team-request
     pub fn team(&self, team: &str) -> json::DecodeResult<Team> {
         let path = format!("team/frc{}", team);
         let results = request(self, path);
-        let decoded : json::DecodeResult<Team> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
     /// http://www.thebluealliance.com/apidocs#team-events-request
     pub fn team_events(&self, team: &str, event: &str) -> json::DecodeResult<Vec<Event>> {
         let path = format!("team/frc{}/event/{}/matches", team, event);
         let results = request(self, path);
-        let decoded : json::DecodeResult<Vec<Event>> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
     /// http://www.thebluealliance.com/apidocs#team-event-matches-request
     pub fn team_event_matches(&self, team: &str, year: &str) -> json::DecodeResult<Vec<Match>> {
         let path = format!("team/frc{}/{}/events", team, year);
         let results = request(self, path);
-        let decoded : json::DecodeResult<Vec<Match>> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
     /// http://www.thebluealliance.com/apidocs#event-list-request
     pub fn events(&self, year: &str) -> json::DecodeResult<Vec<Event>> {
         let path = format!("events/{}", year);
         let results = request(self, path);
-        let decoded : json::DecodeResult<Vec<Event>> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
     /// http://www.thebluealliance.com/apidocs#event-request
     pub fn event(&self, event: &str) -> json::DecodeResult<Event> {
         let path = format!("event/{}", event);
         let results = request(self, path);
-        let decoded : json::DecodeResult<Event> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
     /// http://www.thebluealliance.com/apidocs#event-teams-request
     pub fn event_teams(&self, event: &str) -> json::DecodeResult<Vec<Team>> {
         let path = format!("event/{}/teams", event);
         let results = request(self, path);
-        let decoded : json::DecodeResult<Vec<Team>> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
     /// http://www.thebluealliance.com/apidocs#event-matches-request
     pub fn event_matches(&self, event: &str) -> json::DecodeResult<Vec<Match>> {
         let path = format!("event/{}/matches", event);
         let results = request(self, path);
-        let decoded : json::DecodeResult<Vec<Match>> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
     /// `match` is a reserved keyword in Rust,
@@ -159,8 +151,7 @@ impl Session {
     pub fn mach(&self, matc: &str) -> json::DecodeResult<Match> {
         let path = format!("match/{}", matc);
         let results = request(self, path);
-        let decoded : json::DecodeResult<Match> = json::decode(&results);
-        return decoded
+        json::decode(&results)
     }
 
 }
