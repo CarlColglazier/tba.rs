@@ -1,0 +1,13 @@
+[package]
+name = "tba"
+version = "0.0.0"
+authors = ["Carl Colglazier <carl@carlcolglazier.com>"]
+
+[lib]
+name = "tba"
+path = "src/lib/lib.rs"
+doc = true
+
+[dependencies]
+hyper = "0.3.11"
+rustc-serialize = "0.3"
