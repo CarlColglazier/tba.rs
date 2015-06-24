@@ -1,175 +1,146 @@
-// Copyright 2015 Carl Colglazier.
-// See LICENSE for details.
+//! tba is a [Rust] wrapper for [The Blue Alliance] API.
+//!
+//!
+//!
+//! # Examples
+//!
+//! ```
+//! let the_blue_alliance = tba::Session::new("Team", "App", "Version");
+//! let the_hitchhikers = match the_blue_alliance.get_team(2059) {
+//!     Ok(team) => team,
+//!     Err(e) => panic!("{}", e),
+//! };
+//! assert_eq!(2059, the_hitchhikers.team_number.unwrap());
+//! ```
+//!
+//! [Rust]: http://www.rust-lang.org/ "The Rust Programming Language"
+//! [The Blue Alliance]: http://www.thebluealliance.com/
 
-//! tba provides native interaction with [The Blue Alliance](http://thebluealliance.com/)
-//! in the [Rust programming language](http://rust-lang.org/)
+// Hyper handles the HTTP request we will make to The Blue Alliance's API.
 extern crate hyper;
+// rustc_serialize parses the JSON response to the native structures that we will define below.
 extern crate rustc_serialize;
 
+use std::string::ToString;
 use std::io::Read;
+use std::fmt::Display;
 
+use rustc_serialize::json::DecoderError;
 use hyper::Client;
 
-use rustc_serialize::json;
+mod team;
+mod event;
+mod game;
+mod shared;
 
+pub use team::Team;
+pub use event::Event;
+pub use game::Game;
+pub use shared::*;
 
-/// Session keys to populate the X-TBA-App-Id.
-/// Most functions are implemented for this type.
+const BASE_URL: &'static str = "http://thebluealliance.com/api/v2/";
+
 pub struct Session {
-    developer: &'static str,
-    application: &'static str,
-    pub version: &'static str,
+    developer: String,
+    application: String,
+    version: String,
 }
 
-#[derive(RustcDecodable)]
-/// Based on the team model in [The Blue Alliance API](http://www.thebluealliance.com/apidocs)
-pub struct Team {
-    pub website: Option<String>,
-    pub name: Option<String>,
-    pub locality: Option<String>,
-    pub region: Option<String>,
-    pub country_name: Option<String>,
-    pub location: Option<String>,
-    pub team_number: Option<u32>,
-    pub key: Option<String>,
-    pub nickname: Option<String>,
-    pub rookie_year: Option<u32>
-}
-
-#[derive(RustcDecodable)]
-/// Based on the event model in [The Blue Alliance API](http://www.thebluealliance.com/apidocs)
-pub struct Event {
-    pub key: Option<String>,
-    pub name: Option<String>,
-    pub short_name: Option<String>,
-    pub event_code: Option<String>,
-    pub event_type_string: Option<String>,
-    pub event_type: Option<isize>,
-    pub event_district_string: Option<String>,
-    pub event_district: Option<isize>,
-    pub year: Option<isize>,
-    pub location: Option<String>,
-    pub venue_address: Option<String>,
-    pub website: Option<String>,
-    pub official: Option<bool>
-}
-
-#[derive(RustcDecodable)]
-/// Based on the match model in [The Blue Alliance API](http://www.thebluealliance.com/apidocs)
-pub struct Match {
-    pub key: Option<String>,
-    pub comp_level: Option<String>,
-    pub set_number: Option<i8>,
-    pub match_number: Option<isize>,
-    pub alliances: Option<Alliances>,
-    pub event_key: Option<String>,
-    pub time_string: Option<String>,
-    pub time: Option<isize>
-}
-
-#[derive(RustcDecodable)]
-pub struct Alliances {
-    pub red: Alliance,
-    pub blue: Alliance
-}
-
-#[derive(RustcDecodable)]
-pub struct Alliance {
-    pub score: isize,
-    pub teams: Vec<String>
+impl ToString for Session {
+        fn to_string(&self) -> String {
+            let mut string = String::new();
+            string.push_str(&self.developer);
+            string.push(':');
+            string.push_str(&self.application);
+            string.push(':');
+            string.push_str(&self.version);
+            return string;
+        }
 }
 
 impl Session {
-
     /// Create a new Session.
-    /// This function should be called when tba is first used
-    /// in order to interface with TBA.
-    fn new(d: &'static str, a: &'static str, v: &'static str) -> Session {
-        Session { developer: d, application: a, version: v }
+    pub fn new<T, U, V>(developer: T, application: U, version: V) -> Session
+        where T: ToString, U: ToString, V: ToString
+    {
+        return Session {
+            developer: developer.to_string(),
+            application: application.to_string(),
+            version: version.to_string(),
+        };
     }
 
-    /// http://www.thebluealliance.com/apidocs#team-list-request
-    pub fn teams(&self, page: &str) -> json::DecodeResult<Vec<Team>> {
-        let path = format!("teams/{}", page);
-        let results = request(self, path);
-        json::decode(&results)
+    pub fn request(&self, path: &str) -> String {
+        let mut client = Client::new();
+        let url = format!("{}{}?X-TBA-App-Id={}", BASE_URL, path, self.to_string());
+        let mut res = client.get(&url).send().unwrap();
+        let mut body = String::new();
+        res.read_to_string(&mut body).unwrap();
+        return body;
     }
 
-    /// http://www.thebluealliance.com/apidocs#team-request
-    pub fn team(&self, team: &str) -> json::DecodeResult<Team> {
-        let path = format!("team/frc{}", team);
-        let results = request(self, path);
-        json::decode(&results)
+    /* Team events */
+
+    pub fn get_team<T: Display>(&self, number: T) -> Result<Team, DecoderError> {
+        return Team::get(self, number);
     }
 
-    /// http://www.thebluealliance.com/apidocs#team-events-request
-    pub fn team_events(&self, team: &str, event: &str) -> json::DecodeResult<Vec<Event>> {
-        let path = format!("team/frc{}/event/{}/matches", team, event);
-        let results = request(self, path);
-        json::decode(&results)
+    // pub fn get_teams<T: Display>
+
+
+    /* Event events */
+
+    pub fn get_event<T: Display>(&self, key: T) -> Result<Event, DecoderError> {
+        return Event::get_event(self, key);
     }
 
-    /// http://www.thebluealliance.com/apidocs#team-event-matches-request
-    pub fn team_event_matches(&self, team: &str, year: &str) -> json::DecodeResult<Vec<Match>> {
-        let path = format!("team/frc{}/{}/events", team, year);
-        let results = request(self, path);
-        json::decode(&results)
+    pub fn get_event_teams<T: Display>(&self, key: T) -> Result<Vec<Team>, DecoderError> {
+        return Event::get_event_teams(self, key);
     }
 
-    /// http://www.thebluealliance.com/apidocs#event-list-request
-    pub fn events(&self, year: &str) -> json::DecodeResult<Vec<Event>> {
-        let path = format!("events/{}", year);
-        let results = request(self, path);
-        json::decode(&results)
-    }
+    /* Match events */
 
-    /// http://www.thebluealliance.com/apidocs#event-request
-    pub fn event(&self, event: &str) -> json::DecodeResult<Event> {
-        let path = format!("event/{}", event);
-        let results = request(self, path);
-        json::decode(&results)
+    pub fn get_match<T: Display>(&self, key: T) -> Result<Game, DecoderError> {
+        return Game::get_match(self, key);
     }
-
-    /// http://www.thebluealliance.com/apidocs#event-teams-request
-    pub fn event_teams(&self, event: &str) -> json::DecodeResult<Vec<Team>> {
-        let path = format!("event/{}/teams", event);
-        let results = request(self, path);
-        json::decode(&results)
-    }
-
-    /// http://www.thebluealliance.com/apidocs#event-matches-request
-    pub fn event_matches(&self, event: &str) -> json::DecodeResult<Vec<Match>> {
-        let path = format!("event/{}/matches", event);
-        let results = request(self, path);
-        json::decode(&results)
-    }
-
-    /// `match` is a reserved keyword in Rust,
-    /// so we'll use `mach` instead.
-    ///
-    /// http://www.thebluealliance.com/apidocs#match-request
-    pub fn mach(&self, matc: &str) -> json::DecodeResult<Match> {
-        let path = format!("match/{}", matc);
-        let results = request(self, path);
-        json::decode(&results)
-    }
-
 }
 
-fn request(tba: &Session, path: String) -> String {
+#[cfg(test)]
+mod test {
+    use super::Session;
+    #[test]
+    fn get_team_u16() {
+        let the_blue_alliance = Session::new("Carl Colglazier", "tba.rs", "0.0.0");
+        let team_info = match the_blue_alliance.get_team(2059) {
+            Ok(team) => team,
+            Err(e) => panic!("{}", e),
+        };
+        assert_eq!(2059, team_info.team_number.unwrap());
+        assert_eq!("Apex", team_info.locality.unwrap());
+        assert_eq!("NC", team_info.region.unwrap());
+        assert_eq!("The Hitchhikers", team_info.nickname.unwrap());
+        // Not quite true; our team first started competing in 2011!
+        assert_eq!(2007, team_info.rookie_year.unwrap());
+    }
 
-    let base_url = "http://thebluealliance.com/api/v2";
-    let url = format!("{}/{}?X-TBA-App-Id={}:{}:{}", base_url, path, tba.developer, tba.application, tba.version);
+    #[test]
+    fn get_team_str() {
+        let the_blue_alliance = Session::new("Carl Colglazier", "tba.rs", "0.0.0");
+        let team_info = match the_blue_alliance.get_team("2059") {
+            Ok(team) => team,
+            Err(e) => panic!("{}", e),
+        };
+        assert_eq!(2059, team_info.team_number.unwrap());
+        assert_eq!("Apex", team_info.locality.unwrap());
+        assert_eq!("NC", team_info.region.unwrap());
+        assert_eq!("The Hitchhikers", team_info.nickname.unwrap());
+        // Not quite true; our team first started competing in 2011!
+        assert_eq!(2007, team_info.rookie_year.unwrap());
+    }
 
-    let mut client = Client::new();
-    let mut res = client.get(&*url).send().unwrap();
-    let mut body = String::new();
-    res.read_to_string(&mut body).unwrap();
-
-    body
-}
-
-/// Create a new session.
-pub fn new(developer: &'static str, application: &'static str, version: &'static str) -> Session {
-    Session::new(developer, application, version)
+    #[test]
+    fn get_bad_team() {
+        let the_blue_alliance = Session::new("Carl Colglazier", "tba.rs", "0.0.0");
+        assert!(the_blue_alliance.get_team("The Hichhikers").is_err());
+    }
 }
